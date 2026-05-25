@@ -1,0 +1,5 @@
+venv/
+.env
+data/chats/
+data/personas/
+__pycache__/
