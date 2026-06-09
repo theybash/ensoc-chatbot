@@ -5,13 +5,15 @@ from datetime import datetime
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 CHATS_DIR = os.path.join(DATA_DIR, "chats")
 PERSONAS_DIR = os.path.join(DATA_DIR, "personas")
+PROCESSED_MESSAGES_PATH = os.path.join(DATA_DIR, "processed_messages.json")
 
 os.makedirs(CHATS_DIR, exist_ok=True)
 os.makedirs(PERSONAS_DIR, exist_ok=True)
 
 
 def _sanitize(phone):
-    return "".join(c for c in phone if c.isdigit())
+    sanitized = "".join(c for c in phone if c.isdigit())
+    return sanitized or "unknown"
 
 
 def _chat_path(phone):
@@ -57,3 +59,28 @@ def load_persona(phone):
 def save_persona(phone, persona):
     with open(_persona_path(phone), "w") as f:
         json.dump(persona, f, indent=2, ensure_ascii=False)
+
+
+def has_processed_message(message_id):
+    if not message_id or not os.path.exists(PROCESSED_MESSAGES_PATH):
+        return False
+
+    with open(PROCESSED_MESSAGES_PATH) as f:
+        processed = json.load(f)
+    return message_id in processed
+
+
+def mark_message_processed(message_id):
+    if not message_id:
+        return
+
+    processed = []
+    if os.path.exists(PROCESSED_MESSAGES_PATH):
+        with open(PROCESSED_MESSAGES_PATH) as f:
+            processed = json.load(f)
+
+    if message_id not in processed:
+        processed.append(message_id)
+
+    with open(PROCESSED_MESSAGES_PATH, "w") as f:
+        json.dump(processed[-1000:], f, indent=2)

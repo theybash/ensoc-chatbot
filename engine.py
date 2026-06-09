@@ -11,7 +11,7 @@ from openai import OpenAI
 from prompts import SYSTEM_PROMPT, PERSONA_EXTRACTION_PROMPT
 from storage import load_chat, save_chat, append_message, load_persona, save_persona
 
-MODEL = "gpt-5.1-mini"
+MODEL = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
 
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
@@ -29,6 +29,7 @@ def generate_reply(chat_history):
         messages=messages,
         temperature=0.9,
         max_tokens=300,
+        store=False,
     )
     return resp.choices[0].message.content
 
@@ -47,6 +48,7 @@ def extract_persona(chat_history, phone):
         ],
         temperature=0.3,
         response_format={"type": "json_object"},
+        store=False,
     )
 
     try:
@@ -57,11 +59,34 @@ def extract_persona(chat_history, phone):
 
 def print_typing(text):
     """Simulate typing for multi-message replies split by |||"""
-    parts = [p.strip() for p in text.split("|||") if p.strip()]
+    parts = split_reply_parts(text)
     for i, part in enumerate(parts):
         if i > 0:
             time.sleep(random.uniform(0.5, 1.5))
         print(f"\033[92mRahul:\033[0m {part}")
+
+
+def split_reply_parts(text):
+    return [p.strip() for p in text.split("|||") if p.strip()]
+
+
+def update_persona_if_ready(phone, history, force=False):
+    if not force and len(history) % 6 != 0:
+        return None
+
+    persona = extract_persona(history, phone)
+    if persona:
+        persona["number"] = phone
+        save_persona(phone, persona)
+    return persona
+
+
+def handle_user_message(phone, user_input):
+    history = append_message(phone, "user", user_input)
+    reply = generate_reply(history)
+    history = append_message(phone, "assistant", reply)
+    update_persona_if_ready(phone, history)
+    return split_reply_parts(reply)
 
 
 def print_persona(persona):
@@ -164,24 +189,14 @@ def main():
         if user_input == "/quit":
             break
 
-        history = append_message(phone, "user", user_input)
-
-        reply = generate_reply(history)
-        history = append_message(phone, "assistant", reply)
-        print_typing(reply)
-
-        if len(history) % 6 == 0:
-            persona = extract_persona(history, phone)
-            if persona:
-                persona["number"] = phone
-                save_persona(phone, persona)
-                print("\033[93m[Persona updated silently]\033[0m")
+        parts = handle_user_message(phone, user_input)
+        for part in parts:
+            print(f"\033[92mRahul:\033[0m {part}")
+        history = load_chat(phone)
 
     print("\n\033[93m[Final persona extraction...]\033[0m")
-    persona = extract_persona(history, phone)
+    persona = update_persona_if_ready(phone, history, force=True)
     if persona:
-        persona["number"] = phone
-        save_persona(phone, persona)
         print_persona(persona)
 
     print(f"\033[93mChat saved to data/chats/{phone}.json\033[0m")
