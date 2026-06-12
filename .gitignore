@@ -3,4 +3,5 @@ venv/
 .env
 data/chats/
 data/personas/
+data/processed_messages.json
 __pycache__/

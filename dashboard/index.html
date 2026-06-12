@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EnSocial Leads</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-2: #1c2330;
+    --border: #2d333b;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #4f8cff;
+    --hot: #f85149;
+    --warm: #d29922;
+    --cold: #58a6ff;
+    --green: #3fb950;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header h1 span { color: var(--accent); }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .stat-pill {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .stat-pill b { color: var(--text); }
+  button.icon-btn {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  button.icon-btn:hover { border-color: var(--accent); }
+  main { padding: 24px 28px; max-width: 1300px; margin: 0 auto; }
+  .api-bar {
+    display: none;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .api-bar.open { display: flex; }
+  .api-bar input {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  thead th:hover { color: var(--text); }
+  tbody td {
+    padding: 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13.5px;
+    vertical-align: middle;
+  }
+  tbody tr { cursor: pointer; transition: background 0.12s; }
+  tbody tr:hover { background: var(--panel); }
+  .phone { font-family: "SF Mono", Menlo, monospace; font-size: 13px; }
+  .muted { color: var(--muted); }
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .badge.hot { background: rgba(248,81,73,0.15); color: var(--hot); }
+  .badge.warm { background: rgba(210,153,34,0.15); color: var(--warm); }
+  .badge.cold { background: rgba(88,166,255,0.15); color: var(--cold); }
+  .badge.none { background: var(--panel-2); color: var(--muted); }
+  .score-wrap { display: flex; align-items: center; gap: 10px; }
+  .score-bar {
+    width: 70px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--panel-2);
+    overflow: hidden;
+  }
+  .score-bar i { display: block; height: 100%; border-radius: 999px; }
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 60px 0;
+    font-size: 14px;
+  }
+  /* detail drawer */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s;
+    z-index: 20;
+  }
+  .overlay.open { opacity: 1; pointer-events: auto; }
+  .drawer {
+    position: fixed;
+    top: 0;
+    right: -560px;
+    width: 540px;
+    max-width: 95vw;
+    height: 100vh;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    transition: right 0.22s ease;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+  }
+  .drawer.open { right: 0; }
+  .drawer-head {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .drawer-head h2 { font-size: 15px; }
+  .drawer-head .close { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; }
+  .drawer-body { overflow-y: auto; padding: 20px 22px; flex: 1; }
+  .section-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 18px 0 10px;
+  }
+  .section-title:first-child { margin-top: 0; }
+  .persona-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pcard {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .pcard .label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .pcard .value { font-size: 14px; font-weight: 600; }
+  .pcard .conf { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .pcard .reason { font-size: 11.5px; color: var(--muted); margin-top: 7px; line-height: 1.45; }
+  .notes {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .chat { display: flex; flex-direction: column; gap: 8px; }
+  .msg { max-width: 85%; padding: 9px 13px; border-radius: 12px; font-size: 13px; line-height: 1.45; }
+  .msg.user { align-self: flex-start; background: var(--panel-2); border: 1px solid var(--border); }
+  .msg.assistant { align-self: flex-end; background: rgba(79,140,255,0.13); border: 1px solid rgba(79,140,255,0.3); }
+  .msg .time { display: block; font-size: 10px; color: var(--muted); margin-top: 5px; }
+  .refresh-note { font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>EnSocial <span>Leads</span></h1>
+  <div class="header-right">
+    <span class="stat-pill">Leads: <b id="lead-count">–</b></span>
+    <span class="stat-pill">Hot: <b id="hot-count">–</b></span>
+    <span class="refresh-note" id="refresh-note"></span>
+    <button class="icon-btn" onclick="loadLeads()">Refresh</button>
+    <button class="icon-btn" onclick="toggleApiBar()">API</button>
+  </div>
+</header>
+
+<main>
+  <div class="api-bar" id="api-bar">
+    <input id="api-input" placeholder="API base URL (leave empty for same origin, e.g. https://xxxx.ngrok-free.app)" />
+    <button class="icon-btn" onclick="saveApiBase()">Save</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th onclick="sortBy('phone')">Phone</th>
+        <th onclick="sortBy('name')">Name</th>
+        <th onclick="sortBy('intent_score')">Intent</th>
+        <th onclick="sortBy('configuration')">Config</th>
+        <th onclick="sortBy('budget')">Budget</th>
+        <th>Location</th>
+        <th onclick="sortBy('timeline')">Timeline</th>
+        <th onclick="sortBy('message_count')">Msgs</th>
+        <th onclick="sortBy('last_message_at')">Last activity</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div class="empty" id="empty" style="display:none">No leads yet. Once people chat with the bot, they show up here.</div>
+</main>
+
+<div class="overlay" id="overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h2 id="drawer-title">Lead</h2>
+    <button class="close" onclick="closeDrawer()">&times;</button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</div>
+
+<script>
+let leads = [];
+let sortKey = "intent_score";
+let sortDir = -1;
+
+const DEFAULT_REMOTE_API = "https://stereotomic-anjanette-cryptographically.ngrok-free.dev";
+const IS_LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
+
+function apiBase() {
+  const saved = localStorage.getItem("ensocial_api_base");
+  if (saved) return saved;
+  return IS_LOCAL ? "" : DEFAULT_REMOTE_API;
+}
+
+const API_HEADERS = { "ngrok-skip-browser-warning": "1" };
+
+function toggleApiBar() {
+  const bar = document.getElementById("api-bar");
+  bar.classList.toggle("open");
+  document.getElementById("api-input").value = apiBase();
+}
+
+function saveApiBase() {
+  const value = document.getElementById("api-input").value.trim().replace(/\/+$/, "");
+  localStorage.setItem("ensocial_api_base", value);
+  loadLeads();
+}
+
+function tier(score) {
+  if (score === null || score === undefined) return "none";
+  if (score >= 70) return "hot";
+  if (score >= 40) return "warm";
+  return "cold";
+}
+
+function tierColor(t) {
+  return { hot: "var(--hot)", warm: "var(--warm)", cold: "var(--cold)", none: "var(--muted)" }[t];
+}
+
+function fmtTime(iso) {
+  if (!iso) return "–";
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  return d.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function sortBy(key) {
+  if (sortKey === key) sortDir *= -1;
+  else { sortKey = key; sortDir = key === "intent_score" || key === "message_count" || key === "last_message_at" ? -1 : 1; }
+  render();
+}
+
+async function loadLeads() {
+  try {
+    const res = await fetch(apiBase() + "/api/personas", { headers: API_HEADERS });
+    const data = await res.json();
+    leads = data.leads || [];
+    document.getElementById("refresh-note").textContent =
+      "updated " + new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    render();
+  } catch (e) {
+    document.getElementById("refresh-note").textContent = "fetch failed – check API base";
+  }
+}
+
+function render() {
+  const sorted = [...leads].sort((a, b) => {
+    let va = a[sortKey], vb = b[sortKey];
+    if (va === null || va === undefined) return 1;
+    if (vb === null || vb === undefined) return -1;
+    if (typeof va === "string") return va.localeCompare(vb) * sortDir;
+    return (va - vb) * sortDir;
+  });
+
+  document.getElementById("lead-count").textContent = leads.length;
+  document.getElementById("hot-count").textContent = leads.filter(l => tier(l.intent_score) === "hot").length;
+  document.getElementById("empty").style.display = leads.length ? "none" : "block";
+
+  document.getElementById("rows").innerHTML = sorted.map(l => {
+    const t = tier(l.intent_score);
+    const score = l.intent_score ?? null;
+    return `<tr onclick="openDrawer('${esc(l.phone)}')">
+      <td class="phone">+${esc(l.phone)}</td>
+      <td>${esc(l.name) || '<span class="muted">Unknown</span>'}</td>
+      <td>
+        <div class="score-wrap">
+          <span class="badge ${t}">${score === null ? "–" : score + "%"}</span>
+          <span class="score-bar"><i style="width:${score ?? 0}%;background:${tierColor(t)}"></i></span>
+        </div>
+      </td>
+      <td>${esc(l.configuration) || '<span class="muted">–</span>'}</td>
+      <td>${esc(l.budget) || '<span class="muted">–</span>'}</td>
+      <td>${l.locations && l.locations.length ? esc(l.locations.join(", ")) : '<span class="muted">–</span>'}</td>
+      <td>${esc(l.timeline) || '<span class="muted">–</span>'}</td>
+      <td>${l.message_count}</td>
+      <td class="muted">${fmtTime(l.last_message_at)}</td>
+    </tr>`;
+  }).join("");
+}
+
+function pcard(label, section, valueKey) {
+  const s = section || {};
+  const value = s[valueKey];
+  return `<div class="pcard">
+    <div class="label">${label}</div>
+    <div class="value">${esc(value) || "Unknown"}</div>
+    <div class="conf">confidence ${s.confidence ?? "?"}%</div>
+    ${s.reasoning ? `<div class="reason">${esc(s.reasoning)}</div>` : ""}
+  </div>`;
+}
+
+async function openDrawer(phone) {
+  const res = await fetch(apiBase() + "/api/personas/" + phone, { headers: API_HEADERS });
+  if (!res.ok) return;
+  const data = await res.json();
+  const p = data.persona || {};
+  const s = data.summary || {};
+  const t = tier(s.intent_score);
+
+  document.getElementById("drawer-title").innerHTML =
+    `+${esc(phone)} &nbsp;<span class="badge ${t}">${s.intent_score ?? "–"}${s.intent_score != null ? "%" : ""} intent</span>`;
+
+  const intentCard = pcard("Intent score", p.intent, "score");
+  const locationAreas = ((p.preferred_location || {}).areas || []).join(", ");
+  const locationSection = { ...(p.preferred_location || {}), display: locationAreas };
+
+  document.getElementById("drawer-body").innerHTML = `
+    <div class="section-title">Persona</div>
+    <div class="persona-grid">
+      ${intentCard}
+      ${pcard("Configuration", p.configuration, "bhk")}
+      ${pcard("Budget", p.budget, "range")}
+      ${pcard("Location", locationSection, "display")}
+      ${pcard("Timeline", p.timeline, "estimate")}
+      ${pcard("Family size", p.family_size, "estimate")}
+    </div>
+    ${p.notes ? `<div class="section-title">Notes</div><div class="notes">${esc(p.notes)}</div>` : ""}
+    <div class="section-title">Conversation (${(data.chat || []).length} messages)</div>
+    <div class="chat">
+      ${(data.chat || []).map(m => `
+        <div class="msg ${m.role === "user" ? "user" : "assistant"}">
+          ${esc(m.content)}
+          <span class="time">${m.role === "user" ? "Buyer" : "Rahul"} · ${fmtTime(m.timestamp)}</span>
+        </div>`).join("")}
+    </div>`;
+
+  document.getElementById("overlay").classList.add("open");
+  document.getElementById("drawer").classList.add("open");
+}
+
+function closeDrawer() {
+  document.getElementById("overlay").classList.remove("open");
+  document.getElementById("drawer").classList.remove("open");
+}
+
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(); });
+
+loadLeads();
+setInterval(loadLeads, 30000);
+</script>
+</body>
+</html>
