@@ -7,6 +7,7 @@ import random
 from dotenv import load_dotenv
 load_dotenv()
 
+from attachables import attachables_prompt_context, attachables_tool_spec
 from openai import OpenAI
 from prompts import SYSTEM_PROMPT, PERSONA_EXTRACTION_PROMPT
 from storage import load_chat, save_chat, append_message, load_persona, save_persona
@@ -16,22 +17,56 @@ MODEL = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 
-def generate_reply(chat_history):
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+def generate_reply(chat_history, enable_attachment_tools=False):
+    system_prompt = SYSTEM_PROMPT
+    tool_spec = None
+
+    if enable_attachment_tools:
+        tool_context = attachables_prompt_context()
+        tool_spec = attachables_tool_spec()
+        if tool_context and tool_spec:
+            system_prompt = f"{SYSTEM_PROMPT}\n{tool_context}"
+
+    messages = [{"role": "system", "content": system_prompt}]
     for m in chat_history:
         messages.append({
             "role": "user" if m["role"] == "user" else "assistant",
             "content": m["content"]
         })
 
-    resp = client.chat.completions.create(
-        model=MODEL,
-        messages=messages,
-        temperature=0.9,
-        max_tokens=300,
-        store=False,
-    )
-    return resp.choices[0].message.content
+    request = {
+        "model": MODEL,
+        "messages": messages,
+        "temperature": 0.9,
+        "max_tokens": 300,
+        "store": False,
+    }
+    if tool_spec:
+        request["tools"] = [tool_spec]
+        request["tool_choice"] = "auto"
+
+    resp = client.chat.completions.create(**request)
+    message = resp.choices[0].message
+
+    if not enable_attachment_tools:
+        return message.content
+
+    return message.content or "", _extract_attachment_tool_calls(message)
+
+
+def _extract_attachment_tool_calls(message):
+    attachment_ids = []
+    for tool_call in getattr(message, "tool_calls", None) or []:
+        if tool_call.function.name != "send_attachment":
+            continue
+        try:
+            args = json.loads(tool_call.function.arguments or "{}")
+        except json.JSONDecodeError:
+            continue
+        attachment_id = args.get("attachment_id")
+        if attachment_id and attachment_id not in attachment_ids:
+            attachment_ids.append(attachment_id)
+    return attachment_ids
 
 
 def extract_persona(chat_history, phone):
@@ -87,6 +122,18 @@ def handle_user_message(phone, user_input):
     history = append_message(phone, "assistant", reply)
     update_persona_if_ready(phone, history)
     return split_reply_parts(reply)
+
+
+def handle_user_message_with_tools(phone, user_input):
+    history = append_message(phone, "user", user_input)
+    reply, attachment_ids = generate_reply(history, enable_attachment_tools=True)
+
+    if attachment_ids and not reply.strip():
+        reply = "Sure, sharing it here."
+
+    history = append_message(phone, "assistant", reply)
+    update_persona_if_ready(phone, history)
+    return split_reply_parts(reply), attachment_ids
 
 
 def print_persona(persona):

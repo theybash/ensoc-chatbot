@@ -3,7 +3,8 @@ import os
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory
 
-from engine import handle_user_message, update_persona_if_ready
+from attachables import get_attachable
+from engine import handle_user_message_with_tools, update_persona_if_ready
 from storage import (
     CHATS_DIR,
     PERSONAS_DIR,
@@ -14,7 +15,7 @@ from storage import (
     save_chat,
     save_persona,
 )
-from whatsapp import send_whatsapp_text
+from whatsapp import send_whatsapp_attachment, send_whatsapp_text
 
 load_dotenv()
 
@@ -68,9 +69,11 @@ def receive_webhook():
         text = message["text"]
 
         try:
-            replies = handle_whatsapp_text(phone, text)
+            replies, attachment_ids = handle_whatsapp_text(phone, text)
             for reply in replies:
                 send_whatsapp_text(phone, reply)
+            for attachment_id in attachment_ids:
+                send_attachment_by_id(phone, attachment_id)
         except Exception:
             app.logger.exception("Failed to process WhatsApp message %s", message_id)
             send_whatsapp_text(phone, FALLBACK_REPLY)
@@ -84,14 +87,29 @@ def handle_whatsapp_text(phone, text):
     command = text.strip().lower()
 
     if command == "/persona":
-        return [get_persona_reply(phone)]
+        return [get_persona_reply(phone)], []
 
     if command == "/clear":
         save_chat(phone, [])
         save_persona(phone, {})
-        return ["Chat cleared. I have reset this number's chat history and buyer persona."]
+        return ["Chat cleared. I have reset this number's chat history and buyer persona."], []
 
-    return handle_user_message(phone, text)
+    return handle_user_message_with_tools(phone, text)
+
+
+def send_attachment_by_id(phone, attachment_id):
+    attachment = get_attachable(attachment_id)
+    if not attachment:
+        app.logger.warning("Attachment id not found: %s", attachment_id)
+        send_whatsapp_text(phone, "I do not have that file ready right now, I will share it shortly.")
+        return
+
+    try:
+        send_whatsapp_attachment(phone, attachment)
+    except FileNotFoundError:
+        app.logger.exception("Attachment file missing: %s", attachment_id)
+        send_whatsapp_text(phone, "I do not have that file ready right now, I will share it shortly.")
+        return
 
 
 def get_persona_reply(phone):
